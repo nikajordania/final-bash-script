@@ -17,13 +17,9 @@ if [ $# -ne 5 ]; then
 fi
 
 function handle_interrupt {
-    echo "before all: "
-    pwd
-    popd
-    echo "after all: "
-    pwd
-    rm -rf $REPOSITORY_PATH_CODE
-
+    if [ -d $REPOSITORY_PATH_CODE ]; then
+        rm -rf $REPOSITORY_PATH_CODE
+    fi
     echo "Cleanup complete. Exiting..."
     exit 1
 }
@@ -429,12 +425,31 @@ process_revisions() {
         git tag -f $SUCCESS_DEV_BRANCH_TAG_NAME $(git rev-parse HEAD)
         git push --force origin $SUCCESS_DEV_BRANCH_TAG_NAME
         git tag
+
+
+        git checkout $RELEASE_BRANCH_NAME
+        git merge "${DEV_BRANCH_NAME}-ci-success"
+        git add *
+
+        git commit -m "Merge <${DEV_BRANCH_NAME}-ci-success> into ${RELEASE_BRANCH_NAME} branch"
+
+        git push origin $RELEASE_BRANCH_NAME
+        git checkout $DEV_BRANCH_NAME
         popd
     fi
 
-    rm -rf $REPOSITORY_PATH_REPORT
-    rm -rf $PYTEST_REPORT_PATH
-    rm -rf $BLACK_REPORT_PATH
+    if [ -d $REPOSITORY_PATH_REPORT ]; then
+        rm -rf $REPOSITORY_PATH_REPORT
+    fi
+    if [ -f $PYTEST_REPORT_PATH ]; then
+        rm -f $PYTEST_REPORT_PATH
+    fi
+    if [ -f $BLACK_OUTPUT_PATH ]; then
+        rm -f $BLACK_OUTPUT_PATH
+    fi
+    if [ -f $BLACK_REPORT_PATH ]; then
+        rm -f $BLACK_REPORT_PATH
+    fi
 }
 
 pwd
@@ -447,7 +462,7 @@ while true; do
     if [ "$current_dir" != "$REPOSITORY_PATH_CODE" ]; then
         pushd "$REPOSITORY_PATH_CODE"
     else
-        echo "Current directory is already equal to var."
+        echo "Current directory is already equal to $REPOSITORY_PATH_CODE"
     fi
     git fetch origin $DEV_BRANCH_NAME >/dev/null 2>&1
 
@@ -455,7 +470,7 @@ while true; do
     REMOTE_REV=$(git rev-parse "origin/$DEV_BRANCH_NAME")
 
     if [ "$LOCAL_REV" != "$REMOTE_REV" ]; then
-        # git pull origin "$DEV_BRANCH_NAME" >/dev/null 2>&1
+        git pull origin "$DEV_BRANCH_NAME" >/dev/null 2>&1
         process_revisions
     fi
 
